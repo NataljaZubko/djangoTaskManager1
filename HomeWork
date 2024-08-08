@@ -1,0 +1,98 @@
+#1. Создание записей:
+#Task:
+
+>>> from myapp.models import *
+>>> from datetime import datetime, timedelta
+>>> task = Task.objects.create(
+...     title="Prepare presentation",
+...     description="Prepare materials and slides for the presentation",
+...     status="new",
+...     deadline=datetime.now() + timedelta(days=3)
+... )
+
+#SubTasks для "Prepare presentation":
+
+>>> subtasks = [
+...     SubTask(
+...         title="Gather information",
+...         description="Find necessary information for the presentation",
+...         status="new",
+...         deadline=datetime.now() + timedelta(days=2),
+...         task=task  # Связываем подзадачу с задачей
+...     ),
+...     SubTask(
+...         title="Create slides",
+...         description="Create presentation slides",
+...         status="new",
+...         deadline=datetime.now() + timedelta(days=1),
+...         task=task
+...     )
+... ]
+
+# Сохраняем все подзадачи за один запрос:
+
+>>> SubTask.objects.bulk_create(subtasks)
+
+#2. Чтение записей:
+#Вывести все задачи, у которых статус "New"
+
+>>> new_tasks = Task.objects.filter(status="New")
+>>> new_tasks
+<QuerySet [<Task: Buy groceries>, <Task: Complete project report>]>
+>>> for task in new_tasks:
+...     print(task.title, task.description, task.deadline)
+...
+Buy groceries Purchase groceries for the week 2024-08-01 22:11:51+00:00
+Complete project report Prepare and submit the project report by the end of the week 2024-08-01 22:06:45+00:00
+>>>
+
+#Вывести все подзадачи, у которых статус "Done", но срок выполнения истек
+
+>>> from django.utils import timezone
+>>>
+>>> expired_done_subtasks = SubTask.objects.filter(status="done", deadline__lt=timezone.now())
+>>> expired_done_subtasks
+<QuerySet []>
+>>> for subtask in expired_done_subtasks:
+...     print(subtask.title, subtask.description, subtask.deadline)
+...
+>>>
+
+#3. Изменение записей
+#Измените статус "Prepare presentation" на "In progress".
+#Измените срок выполнения для "Gather information" на два дня назад.
+#Измените описание для "Create slides" на "Create and format presentation slides".
+
+>>> task = Task.objects.get(title="Prepare presentation")
+>>> task.status = "in_progress"
+>>> task.save()
+>>> tasks = Task.objects.all().values('status')
+>>> tasks
+<QuerySet [{'status': 'in_progress'}, {'status': 'New'}, {'status': 'New'}]>
+
+>>> from datetime import datetime, timedelta
+>>>
+>>> for subtask in subtasks_to_update:
+...     if subtask.title == "Gather information":
+...         subtask.deadline = datetime.now() - timedelta(days=2)
+...     elif subtask.title == "Create slides":
+...         subtask.description = "Create and format presentation slides"
+...
+>>> SubTask.objects.bulk_update(subtasks_to_update, ['deadline', 'description'])
+C:\Users\nzubk\PycharmProjects\djangoTaskManager1\.venv\Lib\site-packages\django\db\models\fields\__init__.py:1659: RuntimeWarning: DateTimeField SubTask.deadline received a naive datetime (2024-08-06 21:19:53.493021) while time zone support is active.
+  warnings.warn(
+2
+>>> subtasks = SubTask.objects.filter(title__in=["Gather information", "Create slides"]).values('title', 'deadline', 'description')
+>>> subtasks
+<QuerySet [{'title': 'Create slides', 'deadline': datetime.datetime(2024, 8, 9, 19, 54, 53, 856694, tzinfo=datetime.timezone.utc), 'description': 'Create and format presentatio
+n slides'}, {'title': 'Gather information', 'deadline': datetime.datetime(2024, 8, 6, 21, 19, 53, 493021, tzinfo=datetime.timezone.utc), 'description': 'Find necessary information for the presentation'}]>
+
+
+#4. Удаление записей:
+#Удалите задачу "Prepare presentation" и все ее подзадачи.
+
+>>> task_to_delete = Task.objects.get(title="Prepare presentation")
+>>> task_to_delete
+<Task: Prepare presentation>
+>>> task_to_delete.delete()
+(3, {'myapp.SubTask': 2, 'myapp.Task': 1})
